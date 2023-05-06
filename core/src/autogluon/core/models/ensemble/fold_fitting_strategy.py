@@ -326,11 +326,21 @@ class SequentialLocalFoldFittingStrategy(LocalFoldFittingStrategy):
         if self.user_resources_per_job is not None:
             num_cpus = min(self.num_cpus, self.user_resources_per_job.get('num_cpus', math.inf))
             num_gpus = min(self.num_gpus, self.user_resources_per_job.get('num_gpus', math.inf))
+
+        # strict val mode
+        X_fold_fit, y_fold_fit, X_val_fold_fit, y_val_fold_fit, kwargs_fold = _split_strict_val_fold(
+            X_fold, y_fold, X_val_fold, y_val_fold, kwargs_fold
+        )
+
         fold_model.fit(
-            X=X_fold,
-            y=y_fold,
-            X_val=X_val_fold,
-            y_val=y_val_fold,
+            X=X_fold_fit,
+            y=y_fold_fit,
+            X_val=X_val_fold_fit,
+            y_val=y_val_fold_fit,
+            # X=X_fold,
+            # y=y_fold,
+            # X_val=X_val_fold,
+            # y_val=y_val_fold,
             time_limit=time_limit_fold,
             num_cpus=num_cpus,
             num_gpus=num_gpus,
@@ -338,6 +348,26 @@ class SequentialLocalFoldFittingStrategy(LocalFoldFittingStrategy):
         )
         fold_model.fit_time = time.time() - time_start_fold
         return fold_model
+
+
+def _split_strict_val_fold(X_fold, y_fold, X_val_fold, y_val_fold, kwargs_fold):
+    holdout_frac = float(os.getenv('AUTOGLUON_STRICT_VAL_HOLDOUT_FRAC', '0'))
+    if holdout_frac == 0:
+        with open('/tmp/my_autogluon_log', 'a') as f:
+            print('strict val mode disabled', file=f)
+        return X_fold, y_fold, X_val_fold, y_val_fold, kwargs_fold
+
+    with open('/tmp/my_autogluon_log', 'a') as f:
+        print('strict val mode used holdout_frac {}'.format(holdout_frac), file=f)
+    fold_fit_size = int(X_fold.shape[0] * (1.0 - holdout_frac))
+    if 'sample_weight' in kwargs_fold:
+        kwargs_fold = {
+            **kwargs_fold,
+            'sample_weight': kwargs_fold['sample_weight'][:fold_fit_size],
+            'sample_weight_val': kwargs_fold['sample_weight'][fold_fit_size:],
+        }
+    return (X_fold[:fold_fit_size], y_fold[:fold_fit_size],
+            X_fold[fold_fit_size:], y_fold[fold_fit_size:], kwargs_fold)
 
 
 def _ray_fit(model_base, bagged_ensemble_model_path,
@@ -371,8 +401,16 @@ def _ray_fit(model_base, bagged_ensemble_model_path,
             logger.log(15, f'{len(X_pseudo)} extra rows of pseudolabeled data added to training set for {fold_model.name}')
             X_fold = pd.concat([X_fold, X_pseudo], axis=0, ignore_index=True)
             y_fold = pd.concat([y_fold, y_pseudo], axis=0, ignore_index=True)
-    fold_model.fit(X=X_fold, y=y_fold, X_val=X_val_fold, y_val=y_val_fold,
+
+    # strict val mode
+    X_fold_fit, y_fold_fit, X_val_fold_fit, y_val_fold_fit, kwargs_fold = _split_strict_val_fold(
+        X_fold, y_fold, X_val_fold, y_val_fold, kwargs_fold
+    )
+    fold_model.fit(X=X_fold_fit, y=y_fold_fit, X_val=X_val_fold_fit, y_val=y_val_fold_fit,
                    time_limit=time_limit_fold, **resources, **kwargs_fold)
+
+    # fold_model.fit(X=X_fold, y=y_fold, X_val=X_val_fold, y_val=y_val_fold,
+    #                    time_limit=time_limit_fold, **resources, **kwargs_fold)
     time_train_end_fold = time.time()
     fold_model.fit_time = time_train_end_fold - time_start_fold
     fold_model, pred_proba = _ray_predict_oof(fold_model, X_val_fold, y_val_fold,
