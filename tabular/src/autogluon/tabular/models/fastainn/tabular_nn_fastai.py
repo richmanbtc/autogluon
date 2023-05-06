@@ -20,6 +20,7 @@ from autogluon.core.utils.loaders import load_pkl
 from autogluon.core.utils.savers import save_pkl
 from .hyperparameters.parameters import get_param_baseline
 from .hyperparameters.searchspaces import get_default_searchspace
+from .._utils.validation_utils import split_strict_val_fold
 
 # FIXME: Has a leak somewhere, training additional models in a single python script will slow down training for each additional model. Gets very slow after 20+ models (10x+ slowdown)
 #  Slowdown does not appear to impact Mac OS
@@ -200,6 +201,9 @@ class NNFastAiTabularModel(AbstractModel):
         start_time = time.time()
         if sample_weight is not None:  # TODO: support
             logger.log(15, "sample_weight not yet supported for NNFastAiTabularModel, this model will ignore them in training.")
+
+        X, y, X_val, y_val, _, _ = split_strict_val_fold(
+            X, y, X_val, y_val, None, None)
 
         params = self._get_model_params()
         self._num_cpus_infer = params.pop('_num_cpus_infer', 1)

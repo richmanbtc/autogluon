@@ -17,6 +17,7 @@ from .callbacks import EarlyStoppingCallback, MemoryCheckCallback, TimeCheckCall
 from .catboost_utils import get_catboost_metric_from_ag_metric
 from .hyperparameters.parameters import get_param_baseline
 from .hyperparameters.searchspaces import get_default_searchspace
+from .._utils.validation_utils import split_strict_val_fold
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,9 @@ class CatBoostModel(AbstractModel):
             from .catboost_softclass_utils import SoftclassCustomMetric, SoftclassObjective
             params['loss_function'] = SoftclassObjective.SoftLogLossObjective()
             params['eval_metric'] = SoftclassCustomMetric.SoftLogLossMetric()
+
+        X, y, X_val, y_val, sample_weight, sample_weight_val = split_strict_val_fold(
+            X, y, X_val, y_val, sample_weight, sample_weight_val)
 
         model_type = CatBoostClassifier if self.problem_type in PROBLEM_TYPES_CLASSIFICATION else CatBoostRegressor
         num_rows_train = len(X)

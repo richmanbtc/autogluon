@@ -21,6 +21,7 @@ from . import lgb_utils
 from .hyperparameters.parameters import get_param_baseline, get_lgb_objective, DEFAULT_NUM_BOOST_ROUND
 from .hyperparameters.searchspaces import get_default_searchspace
 from .lgb_utils import construct_dataset
+from .._utils.validation_utils import split_strict_val_fold
 
 warnings.filterwarnings("ignore", category=UserWarning, message="Starting from version")  # lightGBM brew libomp warning
 logger = logging.getLogger(__name__)
@@ -83,6 +84,9 @@ class LGBModel(AbstractModel):
         start_time = time.time()
         ag_params = self._get_ag_params()
         params = self._get_model_params()
+
+        X, y, X_val, y_val, sample_weight, sample_weight_val = split_strict_val_fold(
+            X, y, X_val, y_val, sample_weight, sample_weight_val)
 
         if verbosity <= 1:
             log_period = False

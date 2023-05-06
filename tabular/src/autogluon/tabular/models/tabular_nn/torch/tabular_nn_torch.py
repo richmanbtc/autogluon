@@ -21,6 +21,7 @@ from ..hyperparameters.parameters import get_default_param
 from ..hyperparameters.searchspaces import get_default_searchspace
 from ..utils.data_preprocessor import create_preprocessor, get_feature_arraycol_map, get_feature_type_map
 from ..utils.nn_architecture_utils import infer_y_range
+from ..._utils.validation_utils import split_strict_val_fold
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +147,9 @@ class TabularNeuralNetTorchModel(AbstractNeuralNetworkModel):
         from .tabular_torch_dataset import TabularTorchDataset
 
         start_time = time.time()
+
+        X, y, X_val, y_val, _, _ = split_strict_val_fold(
+            X, y, X_val, y_val, None, None)
 
         params = self._get_model_params()
 

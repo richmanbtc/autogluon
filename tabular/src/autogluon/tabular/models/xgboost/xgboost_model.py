@@ -14,6 +14,7 @@ from autogluon.core.utils.exceptions import NotEnoughMemoryError
 from . import xgboost_utils
 from .hyperparameters.parameters import get_param_baseline
 from .hyperparameters.searchspaces import get_default_searchspace
+from .._utils.validation_utils import split_strict_val_fold
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ class XGBoostModel(AbstractModel):
         if num_cpus:
             params['n_jobs'] = num_cpus
         max_category_levels = params.pop('proc.max_category_levels', 100)
+
+        X, y, X_val, y_val, sample_weight, sample_weight_val = split_strict_val_fold(
+            X, y, X_val, y_val, sample_weight, sample_weight_val)
 
         if verbosity <= 2:
             verbose = False
